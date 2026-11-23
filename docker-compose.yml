@@ -2,6 +2,7 @@ services:
   clock:
     build: .
     image: curvature-clock
+    container_name: curvature-clock
     ports:
       - "${CLOCK_PORT:-8080}:80"
     restart: unless-stopped
