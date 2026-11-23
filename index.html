@@ -9,6 +9,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Set before first paint so the screensaver never flashes the full page.
+    (function () {
+      var v = new URLSearchParams(location.search).get('screensaver');
+      if (v !== null && !/^(0|false|off|no)$/i.test(v)) document.documentElement.classList.add('screensaver');
+    })();
+  </script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230e0d0b'/%3E%3Ctext x='16' y='23' font-family='serif' font-size='20' text-anchor='middle' fill='%23c9a45c'%3E%CE%B6%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -21,6 +28,8 @@
   <main>
     <section class="stage">
       <svg id="dial" role="img"></svg>
+      <p class="ss-caption" id="ss-caption" aria-hidden="true"></p>
+      <p class="ss-hint" id="ss-hint">Esc to exit · F for full screen</p>
     </section>
 
     <section class="plate">
@@ -50,6 +59,7 @@
   <footer>
     <span>Curvature</span>
     <span>Each dial is a closed curve, divided by arc length into twelve equal hours.</span>
+    <a class="ss-link" id="ss-link" href="?screensaver">Screensaver ↗</a>
   </footer>
 
   <script type="module" src="js/main.js"></script>

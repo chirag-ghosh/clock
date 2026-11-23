@@ -31,6 +31,23 @@ docker compose --profile test run --rm e2e
 
 Set `BASE_URL` to point `npm run test:e2e` at any deployed copy.
 
+## Screensaver
+
+Add `?screensaver` to the URL for a full-screen, scroll-free dial with only a small caption:
+
+```
+http://localhost:4321/?screensaver                          # Riemann
+http://localhost:4321/?screensaver#lemniscate               # pick a clock with the hash
+http://localhost:4321/?screensaver&variant=gerono#lemniscate # and a variant
+```
+
+The cursor hides when idle, the dial drifts very slowly to spare the screen, **F** or a double-click toggles
+full screen and **Esc** returns to the full page. `?screensaver=0` turns it off. The footer links to the
+current clock in screensaver form.
+
+Variant keys: `riemann` g1 g2 g3 · `lissajous` 3-2 3-4 5-4 · `cardioid` cardioid inner dimpled ·
+`lemniscate` bernoulli gerono.
+
 ## No. I — The Riemann Clock
 
 The dial is ζ(½ + it) traced from t = −γ to t = +γ, where γ is a non-trivial zero of the
