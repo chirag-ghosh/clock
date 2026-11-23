@@ -2,6 +2,7 @@
   "name": "curvature-clock",
   "private": true,
   "type": "module",
+  "license": "WTFPL",
   "scripts": {
     "start": "node tests/support/serve.mjs",
     "test": "node --test \"tests/unit/*.test.mjs\" \"tests/e2e/*.test.mjs\"",

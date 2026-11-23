@@ -144,3 +144,10 @@ Create `js/clocks/<name>.js` exporting
 (optionally `marker(variant)`, `pivot` and `axes: 'complex'`), where `sample(variant)` returns a closed
 list of `{x, y, t}` points. Register it in [`js/clocks/index.js`](js/clocks/index.js).
 [`js/dial.js`](js/dial.js) does the rest: arc-length parametrisation, ticks, numerals, hands and morphing.
+
+## License
+
+[WTFPL](LICENSE): do what the fuck you want to.
+
+The fonts (Instrument Serif, Inter Tight, JetBrains Mono) are loaded from Google Fonts and are under the
+[SIL Open Font License](https://openfontlicense.org).

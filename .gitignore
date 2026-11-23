@@ -1,1 +1,4 @@
 node_modules
+
+# local preview config for the Claude desktop app
+.claude/launch.json
