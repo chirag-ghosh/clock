@@ -45,6 +45,22 @@ The cursor hides when idle, the dial drifts very slowly to spare the screen, **F
 full screen and **Esc** returns to the full page. `?screensaver=0` turns it off. The footer links to the
 current clock in screensaver form.
 
+### Cycling screensaver
+
+`?cycle` is a screensaver that moves through a playlist of clocks, morphing one dial into the next: the ticks
+and numerals fade out, the curve bends into the next clock's curve with the hands still keeping time along it,
+and the new numerals fade in. Because every dial is parametrised by arc length from twelve o'clock, each point
+flows to the matching point on the next curve.
+
+```
+http://localhost:4321/?cycle               # next clock every 45 s
+http://localhost:4321/?cycle=20            # every 20 s (minimum 8)
+http://localhost:4321/?cycle#cardioid      # start part-way through the playlist
+```
+
+The playlist is Riemann γ₁ → Lissajous 3 : 2 → Cardioid b = ½ → Lemniscate (Gerono); change it in
+`PLAYLIST` in `js/main.js`.
+
 Variant keys: `riemann` g1 g2 g3 · `lissajous` 3-2 3-4 5-4 · `cardioid` cardioid inner dimpled ·
 `lemniscate` bernoulli gerono.
 

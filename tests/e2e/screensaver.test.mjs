@@ -87,4 +87,52 @@ test('cursor hides when idle, hint shows on movement, Esc returns to the full pa
   await page.context().close();
 });
 
+test('a wide dial letterboxes inside a portrait screen instead of overflowing it', async () => {
+  for (const id of ['riemann', 'lissajous', 'cardioid', 'lemniscate']) {
+    const page = await open(`/?screensaver#${id}`, { width: 390, height: 844 });
+    const r = await page.evaluate(() => {
+      const b = document.querySelector('#dial').getBoundingClientRect();
+      return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, w: innerWidth, h: innerHeight };
+    });
+    assert.ok(r.left >= -10 && r.right <= r.w + 10 && r.top >= -10 && r.bottom <= r.h + 10, `${id}: ${JSON.stringify(r)}`);
+    await page.context().close();
+  }
+});
+
+const state = (page) => page.evaluate(() => ({
+  name: document.title.split(' ·')[0],
+  domain: document.querySelector('#domain').textContent,
+  morphing: document.querySelector('#dial').classList.contains('morphing'),
+  numerals: document.querySelectorAll('#dial .numeral').length,
+}));
+
+test('?cycle turns on the screensaver and starts on the playlist variant', async () => {
+  for (const [hash, name, domain] of [['', 'Riemann', /14\.1347/], ['#cardioid', 'Cardioid', /½ − sin θ/],
+    ['#lemniscate', 'Lemniscate', /^x = sin t cos t, y = cos t$/]]) {
+    const page = await open(`/?cycle${hash}`);
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('screensaver')), true);
+    const s = await state(page);
+    assert.equal(s.name, name); assert.match(s.domain, domain);
+    await page.context().close();
+  }
+});
+
+test('?cycle morphs to the next playlist entry and redraws its numerals', async () => {
+  const page = await open('/?cycle=8#lemniscate');      // last entry, so the next one wraps to Riemann γ₁
+  await page.waitForFunction(() => document.querySelector('#dial').classList.contains('morphing'), null, { timeout: 12000 });
+  // mid-transition: the curve is bending and the hands are still on it
+  await page.waitForTimeout(1800);
+  const mid = await page.evaluate(() => ({
+    d: document.querySelector('#dial .curve').getAttribute('d').length,
+    cx: Number(document.querySelector('#dial .tip.second').getAttribute('cx')),
+  }));
+  assert.ok(mid.d > 1000 && Number.isFinite(mid.cx));
+  await page.waitForFunction(() => document.title.startsWith('Riemann'), null, { timeout: 8000 });
+  await page.waitForFunction(() => !document.querySelector('#dial').classList.contains('morphing'), null, { timeout: 3000 });
+  const s = await state(page);
+  assert.match(s.domain, /14\.1347/);
+  assert.equal(s.numerals, 12);
+  await page.context().close();
+});
+
 test('no page errors in screensaver mode', () => assert.deepEqual(errors, []));

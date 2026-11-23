@@ -57,19 +57,80 @@ function select(c, v) {
   svg.setAttribute('aria-label', `${c.title}: a clock face drawn on the curve ${c.formula}`);
   document.title = `${c.name} · Curvature`;
   root.classList.remove('ready');
-  dial = new Dial(root, c.sample(variant), { marker: c.marker?.(variant), pivot: c.pivot, axes: c.axes });
+  dial = new Dial(root, c.sample(variant), dialOptions(c, variant));
   lastSecond = -1;
   requestAnimationFrame(() => root.classList.add('ready'));
   renderIndex();
   renderVariants();
 }
 
+const dialOptions = (c, v) => ({ marker: c.marker?.(v), pivot: c.pivot, axes: c.axes });
 const pad = (n) => String(n).padStart(2, '0');
+
+// ——— cycle: ?cycle[=seconds] moves through every clock, morphing one dial into the next ———
+const cycleParam = params.get('cycle');
+const cycling = screensaver && cycleParam !== null && !/^(0|false|off|no)$/i.test(cycleParam);
+const CYCLE_MS = Math.max(8, Number(cycleParam) || 45) * 1000;
+const FADE_MS = 700, MORPH_MS = 2600;
+const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
+let morph = null;
+
+// The playlist: which clock, and which of its variants, in order.
+const PLAYLIST = [
+  ['riemann', 'g1'],       // γ₁
+  ['lissajous', '3-2'],    // 3 : 2
+  ['cardioid', 'inner'],   // b = ½
+  ['lemniscate', 'gerono'],
+].map(([id, key]) => {
+  const c = clocks.find((x) => x.id === id);
+  return { c, v: c.variants.find((v) => v.key === key) };
+});
+
+function nextClock() {
+  const i = PLAYLIST.findIndex((e) => e.c === clock && e.v === variant);
+  return PLAYLIST[(i + 1) % PLAYLIST.length]; // a clock off the list starts it from the top
+}
+
+function startTransition() {
+  const { c, v } = nextClock();
+  // 1. fade ticks, numerals, axes and caption name out
+  root.classList.add('morphing');
+  $('#ss-caption').classList.add('changing');
+  setTimeout(() => {
+    // 2. bend the curve (and the hands riding it) into the next clock's curve
+    const target = new Dial(null, c.sample(v), dialOptions(c, v));
+    morph = { from: dial.snapshot(), to: target.snapshot(), start: performance.now(), c, v };
+  }, FADE_MS);
+}
+
+function finishTransition() {
+  const { c, v } = morph;
+  morph = null;
+  // 3. draw the new dial for real (still faded), then let its artwork fade in
+  clock = c; variant = v;
+  dial = new Dial(root, c.sample(v), dialOptions(c, v));
+  document.title = `${c.name} · Curvature`;
+  $('#formula').textContent = v.formula || c.formula;
+  $('#domain').textContent = v.detail;
+  lastSecond = -1;
+  root.getBoundingClientRect(); // commit the faded state before removing the class
+  requestAnimationFrame(() => {
+    root.classList.remove('morphing');
+    $('#ss-caption').classList.remove('changing');
+  });
+  setTimeout(startTransition, CYCLE_MS);
+}
 
 function tick(ts = performance.now()) {
   raf = requestAnimationFrame(tick);
   if (ts - lastFrame < FRAME_MS) return;
   lastFrame = ts;
+
+  if (morph) {
+    const k = Math.min(1, (performance.now() - morph.start) / MORPH_MS);
+    dial.morph(morph.from, morph.to, ease(k));
+    if (k >= 1) finishTransition();
+  }
 
   const now = new Date();
   const u = handFractions(now);
@@ -98,6 +159,9 @@ function tick(ts = performance.now()) {
 function route() {
   const id = location.hash.slice(1);
   const c = clocks.find((x) => x.id === id) || clocks[0];
+  // cycling starts on the playlist's variant of the chosen clock
+  const listed = cycling && PLAYLIST.find((e) => e.c === c);
+  if (listed) return select(c, listed.v);
   let saved = params.get('variant');
   if (!c.variants.some((v) => v.key === saved)) {
     try { saved = localStorage.getItem(`variant:${c.id}`); } catch {}
@@ -125,6 +189,7 @@ function setupScreensaver() {
       const url = new URL(location.href);
       url.searchParams.delete('screensaver');
       url.searchParams.delete('variant');
+      url.searchParams.delete('cycle');
       location.href = url.pathname + url.search + url.hash;
     }
   });
@@ -135,3 +200,4 @@ if (screensaver) setupScreensaver();
 document.fonts.ready.then(() => document.body.classList.add('fonts'));
 route();
 tick();
+if (cycling) setTimeout(startTransition, CYCLE_MS);

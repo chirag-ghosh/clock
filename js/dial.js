@@ -14,10 +14,11 @@ export class Dial {
   // `root` holds two stacked SVGs with the same viewBox: a static layer drawn once
   // (curve, axes, ticks, numerals) and a light live layer redrawn every frame (hands).
   // Keeping them apart means the browser never re-rasterises the static artwork.
+  // Pass root = null for geometry only (no drawing), e.g. the target of a morph.
   constructor(root, points, opts = {}) {
     this.root = root;
-    this.svg = root.querySelector('svg.dial-static');
-    this.live = root.querySelector('svg.dial-live');
+    this.svg = root?.querySelector('svg.dial-static');
+    this.live = root?.querySelector('svg.dial-live');
     this.opts = opts;
     this.build(points);
   }
@@ -41,7 +42,33 @@ export class Dial {
     this.length = withArcLength(pts);
     const pv = this.opts.pivot;
     this.pivot = pv ? { X: this.toX(pv.x), Y: this.toY(pv.y) } : centroid(pts, this.length);
-    this.render();
+    if (this.root) this.render();
+  }
+
+  // The curve resampled at n equal arc-length steps from twelve o'clock. Two
+  // snapshots line up point for point, which is what makes a morph possible.
+  snapshot(n = 720) {
+    const pts = [];
+    for (let i = 0; i <= n; i++) pts.push(this.at(i / n));
+    pts[n] = { ...pts[0] }; // closed
+    return { pts, size: { ...this.size }, pivot: { ...this.pivot } };
+  }
+
+  // Show the in-between shape a fraction k of the way from snapshot A to B. Only
+  // the curve and the hands are drawn; ticks and numerals are faded out meanwhile.
+  morph(A, B, k) {
+    const L = (a, b) => a + (b - a) * k;
+    this.size = { w: L(A.size.w, B.size.w), h: L(A.size.h, B.size.h) };
+    for (const s of [this.svg, this.live]) s.setAttribute('viewBox', `0 0 ${f(this.size.w)} ${f(this.size.h)}`);
+    this.pts = A.pts.map((a, i) => {
+      const b = B.pts[i];
+      return { X: L(a.X, b.X), Y: L(a.Y, b.Y), x: L(a.x, b.x), y: L(a.y, b.y), t: L(a.t, b.t) };
+    });
+    this.length = withArcLength(this.pts);
+    this.pivot = { X: L(A.pivot.X, B.pivot.X), Y: L(A.pivot.Y, B.pivot.Y) };
+    for (const c of this.pivotEls) { c.setAttribute('cx', f(this.pivot.X)); c.setAttribute('cy', f(this.pivot.Y)); }
+    this.curveEl.setAttribute('d', this.pts.map((p, i) => `${i ? 'L' : 'M'}${f(p.X)} ${f(p.Y)}`).join(''));
+    this.dayArcU = -1;
   }
 
   // point at fraction u ∈ [0,1) of the total arc length
@@ -103,7 +130,7 @@ export class Dial {
     }
 
     // the curve itself
-    el('path', { d: this.pathBetween(0, 1, 0.0008), class: 'curve' }, svg);
+    this.curveEl = el('path', { d: this.pathBetween(0, 1, 0.0008), class: 'curve' }, svg);
 
     // ticks & numerals
     const marks = el('g', { class: 'marks' }, svg);
@@ -156,8 +183,10 @@ export class Dial {
     // a soft halo instead of a blur filter: filters are re-rendered every frame
     this.secHalo = el('circle', { r: 15, class: 'tip-halo' }, hands);
     this.secDot = el('circle', { r: 6, class: 'tip second' }, hands);
-    el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 11, class: 'pivot' }, hands);
-    el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 3.5, class: 'pivot-core' }, hands);
+    this.pivotEls = [
+      el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 11, class: 'pivot' }, hands),
+      el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 3.5, class: 'pivot-core' }, hands),
+    ];
   }
 
   set(line, a, b) {
