@@ -182,3 +182,18 @@ test('the digital time is HH:MM:SS and fits its column at every width', async ()
 test('no page or console errors', () => {
   assert.deepEqual(errors, []);
 });
+
+// Only the Docker image stamps assets; the local dev server serves files as-is.
+test('deployed assets carry a content-hash version so caches cannot serve stale CSS/JS',
+  { skip: !process.env.BASE_URL && 'needs BASE_URL (the Docker image)' }, async () => {
+    const html = await (await fetch(base + '/')).text();
+    const v = html.match(/styles\.css\?v=([0-9a-f]{10})"/)?.[1];
+    assert.ok(v, 'stylesheet is not versioned');
+    assert.ok(html.includes(`js/main.js?v=${v}"`), 'entry script is not versioned');
+    for (const path of ['/js/main.js', '/js/dial.js', '/js/clocks/index.js', '/js/clocks/riemann.js']) {
+      const src = await (await fetch(base + path)).text();
+      const imports = [...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
+      assert.ok(imports.length > 0, path);
+      for (const i of imports) assert.ok(i.endsWith(`.js?v=${v}`), `${path} imports ${i}`);
+    }
+  });
