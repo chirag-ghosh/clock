@@ -4,7 +4,7 @@ services:
     image: curvature-clock
     container_name: curvature-clock
     ports:
-      - "${CLOCK_PORT:-8080}:80"
+      - "${CLOCK_PORT:-4321}:80"
     restart: unless-stopped
 
   # End-to-end tests against the running container:

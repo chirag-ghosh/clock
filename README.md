@@ -5,7 +5,7 @@ Clocks whose dials are mathematical curves instead of circles. Static site, no b
 ## Run with Docker Compose
 
 ```sh
-docker compose up -d --build      # http://localhost:8080
+docker compose up -d --build      # http://localhost:4321
 CLOCK_PORT=3000 docker compose up -d   # pick another port
 docker compose down
 ```
