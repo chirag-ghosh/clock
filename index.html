@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Curvature</title>
+  <meta name="description" content="Clocks whose dials are mathematical curves. No. I — the Riemann zeta function on the critical line.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230e0d0b'/%3E%3Ctext x='16' y='23' font-family='serif' font-size='20' text-anchor='middle' fill='%23c9a45c'%3E%CE%B6%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#">Curvature</a>
+    <p class="tagline">Clocks drawn on graphs</p>
+    <nav id="index" class="index" aria-label="Clocks"></nav>
+  </header>
+
+  <main>
+    <section class="stage">
+      <svg id="dial" role="img" aria-label="Clock face shaped like the Riemann zeta function on the critical line"></svg>
+    </section>
+
+    <section class="plate">
+      <div class="col intro">
+        <p class="eyebrow" id="numeral"></p>
+        <h1 id="title"></h1>
+        <p class="formula"><span id="formula"></span><span class="domain" id="domain"></span></p>
+        <div class="variants" id="variants" role="group" aria-label="Choose the closing zero"></div>
+      </div>
+
+      <div class="col">
+        <div class="time" id="time" aria-live="off"></div>
+        <dl class="readout">
+          <div id="ro-hour"><dt><i class="key hour"></i>Hour</dt><dd><span class="p"></span><span class="v"></span></dd></div>
+          <div id="ro-minute"><dt><i class="key minute"></i>Minute</dt><dd><span class="p"></span><span class="v"></span></dd></div>
+          <div id="ro-second"><dt><i class="key second"></i>Second</dt><dd><span class="p"></span><span class="v"></span></dd></div>
+        </dl>
+      </div>
+
+      <div class="col">
+        <p class="eyebrow">On this dial</p>
+        <p class="desc" id="desc"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Curvature</span>
+    <span>Each dial is a closed curve, divided by arc length into twelve equal hours.</span>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
