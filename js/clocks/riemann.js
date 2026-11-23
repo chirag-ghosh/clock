@@ -11,6 +11,7 @@ export default {
   name: 'Riemann',
   title: 'The Riemann Clock',
   formula: 'ζ(½ + it)',
+  axes: 'complex',
   variants: ZEROS.slice(0, 3).map((g, i) => ({
     key: `g${i + 1}`,
     label: `γ${'₁₂₃'[i]}`,
@@ -24,6 +25,7 @@ export default {
       non-trivial zero. Conjugate symmetry folds the path back on itself and both ends meet at the origin —
       so twelve o'clock sits exactly on a zero. Hands travel at constant speed by arc length.`;
   },
+  marker: (v) => ({ x: 0, y: 0, label: `ρ = ½ + i${v.label}` }),
   sample(v, n = 2400) {
     const pts = [];
     for (let i = 0; i <= n; i++) {

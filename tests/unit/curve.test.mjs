@@ -68,3 +68,45 @@ test('clock registry entries implement the clock contract', () => {
     assert.ok(r.param && r.value);
   }
 });
+
+test('every variant of every clock is a closed curve', () => {
+  for (const c of clocks) {
+    for (const v of c.variants) {
+      const pts = c.sample(v, 1200);
+      const a = pts[0], b = pts.at(-1);
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 1e-9, `${c.id}/${v.key} does not close`);
+      assert.ok(pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), `${c.id}/${v.key} has NaN`);
+    }
+  }
+});
+
+test('Lissajous: twelve o\'clock is on the top crest, heading clockwise', async () => {
+  const { default: lissajous } = await import('../../js/clocks/lissajous.js');
+  for (const v of lissajous.variants) {
+    const pts = lissajous.sample(v, 2400);
+    close(pts[0].y, 1, 1e-12);
+    assert.ok(pts[1].x > pts[0].x, `${v.key} should start moving right`);
+  }
+});
+
+test('Cardioid: b = 1 starts on the cusp at the origin; b = 1½ never reaches it', async () => {
+  const { default: cardioid } = await import('../../js/clocks/cardioid.js');
+  const [heart, , dimpled] = cardioid.variants;
+  const p = cardioid.sample(heart, 600)[0];
+  close(Math.hypot(p.x, p.y), 0, 1e-12);
+  assert.deepEqual(cardioid.marker(heart), { x: 0, y: 0, label: 'cusp' });
+  assert.ok(cardioid.sample(dimpled, 600).every((q) => Math.hypot(q.x, q.y) > 0.49));
+});
+
+test('Lemniscate: the curve crosses its pivot at three and nine o\'clock', async () => {
+  const { default: lemniscate } = await import('../../js/clocks/lemniscate.js');
+  for (const v of lemniscate.variants) {
+    const pts = lemniscate.sample(v, 2400).map((p) => ({ ...p, X: p.x, Y: p.y }));
+    const L = withArcLength(pts);
+    for (const u of [0.25, 0.75]) {
+      const p = pointAt(pts, L, u);
+      assert.ok(Math.hypot(p.x, p.y) < 1e-3, `${v.key} at ${u}: (${p.x}, ${p.y})`);
+    }
+    close(pointAt(pts, L, 0).y, 1, 1e-9); // 12 at the top
+  }
+});

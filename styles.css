@@ -102,6 +102,7 @@ main { flex: 1; }
 #dial .hand { stroke-linecap: round; }
 #dial .hand.hour { stroke: var(--ink); stroke-width: 7; }
 #dial .hand.minute { stroke: var(--ink); stroke-width: 2.6; }
+#dial .hand.second { stroke: var(--accent); stroke-width: 1.4; }
 #dial .hand-guide { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 6; opacity: .5; }
 #dial .tip.hour { fill: var(--ink); }
 #dial .tip.minute { fill: var(--bg); stroke: var(--ink); stroke-width: 2.2; }

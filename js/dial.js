@@ -34,7 +34,8 @@ export class Dial {
     const pts = raw.map((p) => ({ ...p, X: this.toX(p.x), Y: this.toY(p.y) }));
     this.pts = pts;
     this.length = withArcLength(pts);
-    this.pivot = centroid(pts, this.length);
+    const pv = this.opts.pivot;
+    this.pivot = pv ? { X: this.toX(pv.x), Y: this.toY(pv.y) } : centroid(pts, this.length);
     this.render();
   }
 
@@ -53,10 +54,14 @@ export class Dial {
     return d + 'L' + f(p.X) + ' ' + f(p.Y);
   }
 
-  normalAway(p) {
+  // Unit normal pointing away from the pivot. Close to the pivot "away" is meaningless,
+  // so fall back to the clock-face convention: first half of the dial right, second half left.
+  normalAway(p, u = 0) {
     const len = Math.hypot(p.tx, p.ty) || 1;
     let nx = -p.ty / len, ny = p.tx / len;
-    if (nx * (p.X - this.pivot.X) + ny * (p.Y - this.pivot.Y) < 0) { nx = -nx; ny = -ny; }
+    const dx = p.X - this.pivot.X, dy = p.Y - this.pivot.Y;
+    const flip = Math.hypot(dx, dy) < 40 ? (u < 0.5 ? nx < 0 : nx > 0) : nx * dx + ny * dy < 0;
+    if (flip) { nx = -nx; ny = -ny; }
     return { nx, ny };
   }
 
@@ -82,8 +87,10 @@ export class Dial {
       const t = el('text', { x: f(X + dx), y: f(Y + dy), 'text-anchor': anchor, class: 'axis-label' }, axes);
       t.textContent = txt;
     };
-    tick(w - 24, oy, 'Re', 'end', 0, -10);
-    tick(ox, 24, 'Im', 'start', 10, 12);
+    const complex = this.opts.axes === 'complex';
+    tick(w - 24, oy, complex ? 'Re' : 'x', 'end', 0, -10);
+    tick(ox, 24, complex ? 'Im' : 'y', 'start', 10, 12);
+    const yLabel = (v) => (complex ? (v === 1 ? 'i' : v === -1 ? '−i' : `${v}i`) : String(v)).replace('-', '−');
     const { minX, maxX, minY, maxY } = this.bounds;
     for (let v = Math.ceil(minX); v <= Math.floor(maxX); v++) {
       if (v === 0) continue;
@@ -93,7 +100,7 @@ export class Dial {
     for (let v = Math.ceil(minY); v <= Math.floor(maxY); v++) {
       if (v === 0) continue;
       el('line', { x1: f(ox - 5), y1: f(this.toY(v)), x2: f(ox + 5), y2: f(this.toY(v)) }, axes);
-      tick(ox, this.toY(v), (String(v) + 'i').replace('-', '−').replace(/^1i/, 'i').replace(/^−1i/, '−i'), 'start', 10, 5);
+      tick(ox, this.toY(v), yLabel(v), 'start', 10, 5);
     }
 
     // the curve itself
@@ -104,7 +111,7 @@ export class Dial {
     const marks = el('g', { class: 'marks' }, svg);
     for (let i = 0; i < 60; i++) {
       const p = this.at(i / 60);
-      const { nx, ny } = this.normalAway(p);
+      const { nx, ny } = this.normalAway(p, i / 60);
       const major = i % 5 === 0;
       const a = major ? 4 : 3, b = major ? 18 : 9;
       el('line', {
@@ -113,17 +120,25 @@ export class Dial {
       }, marks);
       if (major) {
         const n = i === 0 ? 12 : i / 5;
-        const t = el('text', { x: f(p.X + nx * 44), y: f(p.Y + ny * 44 + 11), class: 'numeral' }, marks);
+        // a numeral on the pivot itself goes beside it rather than along the normal
+        const onPivot = Math.hypot(p.X - this.pivot.X, p.Y - this.pivot.Y) < 40;
+        const lx = onPivot ? p.X + (i < 30 ? 1 : -1) * 62 : p.X + nx * 44;
+        const ly = onPivot ? p.Y + 11 : p.Y + ny * 44 + 11;
+        const t = el('text', { x: f(lx), y: f(ly), class: 'numeral' }, marks);
         t.textContent = n;
       }
     }
 
-    // the zero
-    const z = el('g', { class: 'zero' }, svg);
-    el('circle', { cx: f(ox), cy: f(oy), r: 7 }, z);
-    if (this.opts.zeroLabel) {
-      const t = el('text', { x: f(ox - 14), y: f(oy + 40), 'text-anchor': 'end', class: 'zero-label' }, z);
-      t.textContent = this.opts.zeroLabel;
+    // a notable point on the curve (a zero, a cusp, a node)
+    const mk = this.opts.marker;
+    if (mk) {
+      const mx = this.toX(mk.x), my = this.toY(mk.y);
+      const z = el('g', { class: 'zero' }, svg);
+      el('circle', { cx: f(mx), cy: f(my), r: 7 }, z);
+      if (mk.label) {
+        const t = el('text', { x: f(mx - 14), y: f(my + 40), 'text-anchor': 'end', class: 'zero-label' }, z);
+        t.textContent = mk.label;
+      }
     }
 
     // hands
@@ -136,6 +151,7 @@ export class Dial {
     this.hourTip = el('circle', { r: 9, class: 'tip hour' }, hands);
     this.minHand = el('line', { class: 'hand minute' }, hands);
     this.minTip = el('circle', { r: 7, class: 'tip minute' }, hands);
+    this.secHand = el('line', { class: 'hand second' }, hands);
     this.secDot = el('circle', { r: 6, class: 'tip second', filter: 'url(#glow)' }, hands);
     el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 11, class: 'pivot' }, hands);
     el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 3.5, class: 'pivot-core' }, hands);
@@ -156,6 +172,9 @@ export class Dial {
     this.set(this.minHand, P, mp);
     this.minTip.setAttribute('cx', f(mp.X)); this.minTip.setAttribute('cy', f(mp.Y));
     this.secDot.setAttribute('cx', f(sp.X)); this.secDot.setAttribute('cy', f(sp.Y));
+    // second hand: pivot to the marker, plus a short counterweight tail
+    const dx = sp.X - P.X, dy = sp.Y - P.Y, d = Math.hypot(dx, dy) || 1;
+    this.set(this.secHand, { X: P.X - (dx / d) * 46, Y: P.Y - (dy / d) * 46 }, sp);
 
     // comet trail behind the second marker
     const span = 0.12, n = this.trailSegs.length;

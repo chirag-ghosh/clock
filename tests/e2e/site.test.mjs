@@ -41,6 +41,56 @@ test('renders the Riemann dial with twelve numerals and 60 ticks', async () => {
   await page.context().close();
 });
 
+for (const [id, title] of [['riemann', 'The Riemann Clock'], ['lissajous', 'The Lissajous Clock'],
+  ['cardioid', 'The Cardioid Clock'], ['lemniscate', 'The Lemniscate Clock']]) {
+  test(`#${id} renders its dial and every variant`, async () => {
+    const page = await open(`/#${id}`);
+    assert.equal(await page.textContent('#title'), title);
+    assert.equal(await page.getAttribute('.index-item.active', 'href'), `#${id}`);
+    const buttons = await page.locator('#variants button').count();
+    assert.ok(buttons >= 2);
+    for (let i = 1; i <= buttons; i++) {
+      await page.click(`#variants button:nth-child(${i})`);
+      await page.waitForSelector(`#variants button:nth-child(${i}).active`);
+      assert.equal(await page.locator('#dial .numeral').count(), 12);
+      assert.ok((await page.getAttribute('#dial .curve', 'd')).length > 1000);
+      for (const sel of ['.hand.hour', '.hand.minute', '.hand.second']) {
+        assert.ok(Number.isFinite(await attr(page, `#dial ${sel}`, 'x2')), `${id} ${sel}`);
+      }
+    }
+    await page.context().close();
+  });
+}
+
+test('index lists all four clocks and nothing marked as coming soon', async () => {
+  const page = await open('/');
+  const names = await page.$$eval('.index-item .nm', (n) => n.map((x) => x.textContent));
+  assert.deepEqual(names, ['Riemann', 'Lissajous', 'Cardioid', 'Lemniscate']);
+  assert.equal(await page.locator('.index-item.soon').count(), 0);
+  await page.click('a.index-item[href="#cardioid"]');
+  await page.waitForFunction(() => document.querySelector('#title').textContent === 'The Cardioid Clock');
+  await page.context().close();
+});
+
+test('the second hand runs from the pivot to the second marker', async () => {
+  const page = await open('/#cardioid');
+  const g = await page.evaluate(() => {
+    const n = (s, a) => Number(document.querySelector(`#dial ${s}`).getAttribute(a));
+    return {
+      hx: n('.hand.second', 'x2'), hy: n('.hand.second', 'y2'),
+      dx: n('.tip.second', 'cx'), dy: n('.tip.second', 'cy'),
+      tx: n('.hand.second', 'x1'), ty: n('.hand.second', 'y1'),
+      px: n('.pivot', 'cx'), py: n('.pivot', 'cy'),
+    };
+  });
+  assert.equal(g.hx, g.dx); assert.equal(g.hy, g.dy);
+  // the tail sits opposite the marker, behind the pivot
+  const dot = (g.tx - g.px) * (g.dx - g.px) + (g.ty - g.py) * (g.dy - g.py);
+  assert.ok(dot < 0, 'tail should point away from the marker');
+  assert.ok(Math.abs(Math.hypot(g.tx - g.px, g.ty - g.py) - 46) < 0.1);
+  await page.context().close();
+});
+
 test('hands are positioned and the second marker moves', async () => {
   const page = await open('/');
   const x0 = await attr(page, '#dial .tip.second', 'cx');
@@ -74,6 +124,7 @@ test('12:00 puts every hand on the zero at the origin', async () => {
   await page.waitForSelector('#dial.ready');
   const zx = await attr(page, '#dial .zero circle', 'cx');
   const zy = await attr(page, '#dial .zero circle', 'cy');
+  assert.equal(await attr(page, '#dial .hand.second', 'x2'), await attr(page, '#dial .tip.second', 'cx'));
   for (const t of ['hour', 'minute', 'second']) {
     assert.ok(Math.abs((await attr(page, `#dial .tip.${t}`, 'cx')) - zx) < 0.5, `${t} x`);
     assert.ok(Math.abs((await attr(page, `#dial .tip.${t}`, 'cy')) - zy) < 0.5, `${t} y`);

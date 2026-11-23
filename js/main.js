@@ -43,12 +43,13 @@ function select(c, v) {
   try { localStorage.setItem(`variant:${c.id}`, variant.key); } catch {}
   $('#numeral').textContent = `No. ${c.numeral}`;
   $('#title').textContent = c.title;
-  $('#formula').textContent = c.formula;
+  $('#formula').textContent = variant.formula || c.formula;
   $('#domain').textContent = variant.detail;
   $('#desc').innerHTML = c.describe(variant);
+  svg.setAttribute('aria-label', `${c.title}: a clock face drawn on the curve ${c.formula}`);
   document.title = `${c.name} · Curvature`;
   svg.classList.remove('ready');
-  dial = new Dial(svg, c.sample(variant), { zeroLabel: `ρ = ½ + i${variant.label}` });
+  dial = new Dial(svg, c.sample(variant), { marker: c.marker?.(variant), pivot: c.pivot, axes: c.axes });
   requestAnimationFrame(() => svg.classList.add('ready'));
   renderIndex();
   renderVariants();
