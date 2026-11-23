@@ -14,7 +14,7 @@ export function serve(port = 0) {
     if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
     try {
       const body = await readFile(file);
-      res.writeHead(200, { 'Content-Type': (TYPES[extname(file)] || 'application/octet-stream') + '; charset=utf-8' }).end(body);
+      res.writeHead(200, { 'Content-Type': (TYPES[extname(file)] || 'application/octet-stream') + '; charset=utf-8', 'Cache-Control': 'no-cache' }).end(body);
     } catch {
       res.writeHead(404).end('not found');
     }

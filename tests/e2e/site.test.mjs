@@ -155,10 +155,12 @@ test('fits a phone screen without horizontal scroll', async () => {
 });
 
 test('assets are served with the right content types', async () => {
-  for (const [path, type] of [['/', /text\/html/], ['/styles.css', /text\/css/], ['/js/main.js', /javascript/]]) {
+  for (const [path, type] of [['/', /text\/html/], ['/styles.css', /text\/css/], ['/js/main.js', /javascript/], ['/js/clocks/index.js', /javascript/]]) {
     const res = await fetch(base + path);
     assert.equal(res.status, 200, path);
     assert.match(res.headers.get('content-type'), type, path);
+    // must revalidate, or browsers keep running old code after a deploy
+    assert.match(res.headers.get('cache-control') || '', /no-cache/, `${path} cache-control`);
   }
 });
 
