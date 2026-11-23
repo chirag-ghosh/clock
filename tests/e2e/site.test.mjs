@@ -179,6 +179,36 @@ test('the digital time is HH:MM:SS and fits its column at every width', async ()
   }
 });
 
+test('performance: hands redraw at most 30 times a second and text only once a second', async () => {
+  const page = await open('/');
+  const r = await page.evaluate(() => new Promise((done) => {
+    let hands = 0, time = 0;
+    const dot = document.querySelector('#dial .tip.second');
+    new MutationObserver(() => hands++).observe(dot, { attributes: true, attributeFilter: ['cx'] });
+    new MutationObserver(() => time++).observe(document.querySelector('#time'), { childList: true });
+    setTimeout(() => done({ hands, time }), 3000);
+  }));
+  assert.ok(r.hands > 30, `hands should animate (${r.hands} updates in 3s)`);
+  assert.ok(r.hands <= 95, `hands updated ${r.hands} times in 3s (cap is 30/s)`);
+  assert.ok(r.time <= 4, `time text rewritten ${r.time} times in 3s`);
+  await page.context().close();
+});
+
+test('performance: static artwork and animated hands live in separate layers, no filters', async () => {
+  const page = await open('/');
+  const r = await page.evaluate(() => ({
+    staticHands: document.querySelectorAll('#dial .dial-static .hand, #dial .dial-static .tip').length,
+    staticCurve: document.querySelectorAll('#dial .dial-static .curve').length,
+    liveHands: document.querySelectorAll('#dial .dial-live .hand').length,
+    liveText: document.querySelectorAll('#dial .dial-live text').length,
+    filters: document.querySelectorAll('#dial filter, #dial [filter]').length,
+    willChange: getComputedStyle(document.querySelector('#dial .dial-live')).willChange,
+    sameViewBox: document.querySelector('.dial-static').getAttribute('viewBox') === document.querySelector('.dial-live').getAttribute('viewBox'),
+  }));
+  assert.deepEqual(r, { staticHands: 0, staticCurve: 1, liveHands: 3, liveText: 0, filters: 0, willChange: 'transform', sameViewBox: true });
+  await page.context().close();
+});
+
 test('no page or console errors', () => {
   assert.deepEqual(errors, []);
 });

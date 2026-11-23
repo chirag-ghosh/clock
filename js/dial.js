@@ -11,8 +11,13 @@ const el = (tag, attrs = {}, parent) => {
 const f = (n) => n.toFixed(2);
 
 export class Dial {
-  constructor(svg, points, opts = {}) {
-    this.svg = svg;
+  // `root` holds two stacked SVGs with the same viewBox: a static layer drawn once
+  // (curve, axes, ticks, numerals) and a light live layer redrawn every frame (hands).
+  // Keeping them apart means the browser never re-rasterises the static artwork.
+  constructor(root, points, opts = {}) {
+    this.root = root;
+    this.svg = root.querySelector('svg.dial-static');
+    this.live = root.querySelector('svg.dial-live');
     this.opts = opts;
     this.build(points);
   }
@@ -66,17 +71,11 @@ export class Dial {
   }
 
   render() {
-    const svg = this.svg;
+    const svg = this.svg, live = this.live;
     svg.innerHTML = '';
+    live.innerHTML = '';
     const { w, h } = this.size;
-    svg.setAttribute('viewBox', `0 0 ${f(w)} ${f(h)}`);
-
-    const defs = el('defs', {}, svg);
-    const glow = el('filter', { id: 'glow', x: '-50%', y: '-50%', width: '200%', height: '200%' }, defs);
-    el('feGaussianBlur', { stdDeviation: '6', result: 'b' }, glow);
-    const m = el('feMerge', {}, glow);
-    el('feMergeNode', { in: 'b' }, m);
-    el('feMergeNode', { in: 'SourceGraphic' }, m);
+    for (const s of [svg, live]) s.setAttribute('viewBox', `0 0 ${f(w)} ${f(h)}`);
 
     // complex-plane axes
     const axes = el('g', { class: 'axes' }, svg);
@@ -105,7 +104,6 @@ export class Dial {
 
     // the curve itself
     el('path', { d: this.pathBetween(0, 1, 0.0008), class: 'curve' }, svg);
-    this.dayArc = el('path', { class: 'day-arc' }, svg);
 
     // ticks & numerals
     const marks = el('g', { class: 'marks' }, svg);
@@ -141,18 +139,23 @@ export class Dial {
       }
     }
 
-    // hands
-    const hands = el('g', { class: 'hands' }, svg);
+    // live layer: swept arc, trail and hands
+    this.dayArc = el('path', { class: 'day-arc' }, live);
+    this.dayArcU = -1;
+    const hands = el('g', { class: 'hands' }, live);
     this.trail = el('g', { class: 'trail' }, hands);
-    this.trailSegs = Array.from({ length: 28 }, (_, i) =>
-      el('path', { 'stroke-opacity': f(((i + 1) / 28) ** 1.6) }, this.trail));
+    const TRAIL = 14;
+    this.trailSegs = Array.from({ length: TRAIL }, (_, i) =>
+      el('path', { 'stroke-opacity': f(((i + 1) / TRAIL) ** 1.6) }, this.trail));
     this.hourGuide = el('line', { class: 'hand-guide' }, hands);
     this.hourHand = el('line', { class: 'hand hour' }, hands);
     this.hourTip = el('circle', { r: 9, class: 'tip hour' }, hands);
     this.minHand = el('line', { class: 'hand minute' }, hands);
     this.minTip = el('circle', { r: 7, class: 'tip minute' }, hands);
     this.secHand = el('line', { class: 'hand second' }, hands);
-    this.secDot = el('circle', { r: 6, class: 'tip second', filter: 'url(#glow)' }, hands);
+    // a soft halo instead of a blur filter: filters are re-rendered every frame
+    this.secHalo = el('circle', { r: 15, class: 'tip-halo' }, hands);
+    this.secDot = el('circle', { r: 6, class: 'tip second' }, hands);
     el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 11, class: 'pivot' }, hands);
     el('circle', { cx: f(this.pivot.X), cy: f(this.pivot.Y), r: 3.5, class: 'pivot-core' }, hands);
   }
@@ -171,7 +174,7 @@ export class Dial {
     this.hourTip.setAttribute('cx', f(hp.X)); this.hourTip.setAttribute('cy', f(hp.Y));
     this.set(this.minHand, P, mp);
     this.minTip.setAttribute('cx', f(mp.X)); this.minTip.setAttribute('cy', f(mp.Y));
-    this.secDot.setAttribute('cx', f(sp.X)); this.secDot.setAttribute('cy', f(sp.Y));
+    for (const c of [this.secDot, this.secHalo]) { c.setAttribute('cx', f(sp.X)); c.setAttribute('cy', f(sp.Y)); }
     // second hand: pivot to the marker, plus a short counterweight tail
     const dx = sp.X - P.X, dy = sp.Y - P.Y, d = Math.hypot(dx, dy) || 1;
     this.set(this.secHand, { X: P.X - (dx / d) * 46, Y: P.Y - (dy / d) * 46 }, sp);
@@ -180,10 +183,14 @@ export class Dial {
     const span = 0.12, n = this.trailSegs.length;
     this.trailSegs.forEach((seg, i) => {
       const a = sU - span + (span * i) / n, b = a + span / n + 0.0005;
-      seg.setAttribute('d', this.pathBetween(a, b, 0.001));
+      seg.setAttribute('d', this.pathBetween(a, b, 0.002));
     });
-    // portion of the dial the hour hand has swept this half-day
-    this.dayArc.setAttribute('d', hU > 0.0005 ? this.pathBetween(0, hU, 0.0015) : '');
+    // portion of the dial the hour hand has swept this half-day; it grows ~0.14 px/s,
+    // so only rebuild it every ~10 seconds (or when the hour wraps)
+    if (Math.abs(hU - this.dayArcU) > 0.00025) {
+      this.dayArcU = hU;
+      this.dayArc.setAttribute('d', hU > 0.0005 ? this.pathBetween(0, hU, 0.0015) : '');
+    }
     return { hp, mp, sp };
   }
 }

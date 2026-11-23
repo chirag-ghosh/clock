@@ -3,10 +3,15 @@ import { Dial } from './dial.js';
 import { handFractions } from './curve.js';
 
 const $ = (s) => document.querySelector(s);
-const svg = $('#dial');
+const root = $('#dial');
+const svg = root.querySelector('svg.dial-static');
 const params = new URLSearchParams(location.search);
 const screensaver = document.documentElement.classList.contains('screensaver');
 let dial, clock, variant, raf;
+let lastFrame = 0, lastSecond = -1, lastReadout = 0;
+// 30 fps is plenty for hands moving a few pixels a second, and halves (or, on
+// 120 Hz displays, quarters) the drawing work compared with every animation frame.
+const FRAME_MS = 1000 / 30 - 2;
 
 function renderIndex() {
   const nav = $('#index');
@@ -51,34 +56,43 @@ function select(c, v) {
   $('#desc').innerHTML = c.describe(variant);
   svg.setAttribute('aria-label', `${c.title}: a clock face drawn on the curve ${c.formula}`);
   document.title = `${c.name} · Curvature`;
-  svg.classList.remove('ready');
-  dial = new Dial(svg, c.sample(variant), { marker: c.marker?.(variant), pivot: c.pivot, axes: c.axes });
-  requestAnimationFrame(() => svg.classList.add('ready'));
+  root.classList.remove('ready');
+  dial = new Dial(root, c.sample(variant), { marker: c.marker?.(variant), pivot: c.pivot, axes: c.axes });
+  lastSecond = -1;
+  requestAnimationFrame(() => root.classList.add('ready'));
   renderIndex();
   renderVariants();
 }
 
 const pad = (n) => String(n).padStart(2, '0');
 
-function tick() {
+function tick(ts = performance.now()) {
+  raf = requestAnimationFrame(tick);
+  if (ts - lastFrame < FRAME_MS) return;
+  lastFrame = ts;
+
   const now = new Date();
   const u = handFractions(now);
   const { hp, mp, sp } = dial.update(u.hour, u.minute, u.second);
-  const [hh, mm, ss] = [now.getHours(), now.getMinutes(), now.getSeconds()].map(pad);
 
-  if (screensaver) {
-    $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${hh}:${mm}:${ss}</span>`;
-    raf = requestAnimationFrame(tick);
-    return;
+  // text only changes once a second; rewriting it every frame forces a layout each time
+  const second = now.getSeconds();
+  if (second !== lastSecond) {
+    lastSecond = second;
+    const [hh, mm, ss] = [now.getHours(), now.getMinutes(), second].map(pad);
+    if (screensaver) {
+      $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${hh}:${mm}:${ss}</span>`;
+    } else {
+      $('#time').innerHTML = `${hh}<span class="colon">:</span>${mm}<span class="colon">:</span><span class="secs">${ss}</span>`;
+    }
   }
-  $('#time').innerHTML = `${hh}<span class="colon">:</span>${mm}<span class="colon">:</span><span class="secs">${ss}</span>`;
-  const rows = [['hour', hp], ['minute', mp], ['second', sp]];
-  for (const [k, p] of rows) {
+  if (screensaver || ts - lastReadout < 250) return;
+  lastReadout = ts;
+  for (const [k, p] of [['hour', hp], ['minute', mp], ['second', sp]]) {
     const r = clock.readout(p);
     $(`#ro-${k} .p`).textContent = r.param;
     $(`#ro-${k} .v`).textContent = r.value;
   }
-  raf = requestAnimationFrame(tick);
 }
 
 function route() {

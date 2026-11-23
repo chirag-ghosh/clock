@@ -27,7 +27,10 @@
 
   <main>
     <section class="stage">
-      <svg id="dial" role="img"></svg>
+      <div id="dial" class="dial">
+        <svg class="dial-static" role="img"></svg>
+        <svg class="dial-live" aria-hidden="true"></svg>
+      </div>
       <p class="ss-caption" id="ss-caption" aria-hidden="true"></p>
       <p class="ss-hint" id="ss-hint">Esc to exit · F for full screen</p>
     </section>

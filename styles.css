@@ -25,7 +25,6 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   background: var(--bg);
   background-image: radial-gradient(ellipse 80% 60% at 50% 30%, var(--bg-2), var(--bg) 70%);
-  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--sans);
   font-weight: 300;
@@ -79,13 +78,19 @@ main { flex: 1; }
   padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 56px) 0;
 }
 #dial {
+  position: relative;
   width: 100%;
   max-width: 1180px;
-  max-height: 68vh;
-  height: auto;
-  overflow: visible;
   opacity: 0;
   transition: opacity 1.2s ease;
+}
+#dial svg { display: block; overflow: visible; }
+#dial .dial-static { width: 100%; height: auto; max-height: 68vh; }
+/* The live layer (hands) gets its own compositing layer, so redrawing it each
+   frame never re-rasterises the static artwork underneath. */
+#dial .dial-live {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; will-change: transform;
 }
 #dial.ready { opacity: 1; }
 
@@ -107,6 +112,7 @@ main { flex: 1; }
 #dial .tip.hour { fill: var(--ink); }
 #dial .tip.minute { fill: var(--bg); stroke: var(--ink); stroke-width: 2.2; }
 #dial .tip.second { fill: var(--accent-2); }
+#dial .tip-halo { fill: var(--accent); opacity: .18; }
 #dial .trail path { fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round; }
 #dial .pivot { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
 #dial .pivot-core { fill: var(--accent); }
@@ -184,7 +190,7 @@ footer span:first-child { font-family: var(--display); font-size: 16px; color: v
   .index { justify-content: flex-start; gap: 18px; margin-top: 10px; }
   .plate { grid-template-columns: 1fr; }
   .time { font-size: 24vw; }
-  #dial { max-height: none; }
+  #dial .dial-static { max-height: none; }
   #dial .numeral { font-size: 56px; }
   #dial .axis-label, #dial .zero-label { display: none; }
   #dial .tick { display: none; }
@@ -206,8 +212,9 @@ footer .ss-link:hover { color: var(--accent); }
   padding: max(24px, 5vmin);
   align-items: center;
 }
+.screensaver #dial .dial-static { height: 100%; max-height: none; }
 .screensaver #dial {
-  width: 100%; height: 100%; max-width: none; max-height: none;
+  width: 100%; height: 100%; max-width: none;
   animation: ss-drift 240s ease-in-out infinite alternate;
 }
 /* a slow drift so a static picture never sits in one place on the panel */
