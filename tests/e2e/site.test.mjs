@@ -129,7 +129,7 @@ test('12:00 puts every hand on the zero at the origin', async () => {
     assert.ok(Math.abs((await attr(page, `#dial .tip.${t}`, 'cx')) - zx) < 0.5, `${t} x`);
     assert.ok(Math.abs((await attr(page, `#dial .tip.${t}`, 'cy')) - zy) < 0.5, `${t} y`);
   }
-  assert.match(await page.textContent('#time'), /^12:0000$/);
+  assert.match(await page.textContent('#time'), /^12:00:00$/);
   assert.match(await page.textContent('#ro-minute .v'), /^−?0\.000 [+−] 0\.000i$/);
   await ctx.close();
 });
@@ -159,6 +159,21 @@ test('assets are served with the right content types', async () => {
     const res = await fetch(base + path);
     assert.equal(res.status, 200, path);
     assert.match(res.headers.get('content-type'), type, path);
+  }
+});
+
+test('the digital time is HH:MM:SS and fits its column at every width', async () => {
+  for (const width of [1920, 1440, 1100, 961, 800, 390, 320]) {
+    const page = await open('/', { viewport: { width, height: 900 } });
+    const m = await page.evaluate(() => {
+      const t = document.querySelector('#time');
+      const r = document.createRange();
+      r.selectNodeContents(t);
+      return { text: t.textContent, text_w: r.getBoundingClientRect().width, col_w: t.parentElement.getBoundingClientRect().width };
+    });
+    assert.match(m.text, /^\d\d:\d\d:\d\d$/, `${width}px`);
+    assert.ok(m.text_w <= m.col_w, `${width}px: time ${m.text_w} wider than column ${m.col_w}`);
+    await page.context().close();
   }
 });
 

@@ -31,7 +31,7 @@ test('?screensaver shows only the dial and a small caption, with no scrolling', 
     const page = await open('/?screensaver#lissajous', viewport);
     for (const sel of ['header.top', '.plate', 'footer']) assert.equal(await visible(page, sel), false, sel);
     assert.equal(await visible(page, '#ss-caption'), true);
-    assert.match(await page.textContent('#ss-caption'), /^Lissajous\s*\d\d:\d\d$/);
+    assert.match(await page.textContent('#ss-caption'), /^Lissajous\s*\d\d:\d\d:\d\d$/);
     const m = await page.evaluate(() => {
       const r = document.querySelector('#dial').getBoundingClientRect();
       const d = document.documentElement;

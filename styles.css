@@ -114,7 +114,7 @@ main { flex: 1; }
 /* ——— plate ——— */
 .plate {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1.1fr;
+  grid-template-columns: 1fr 1.45fr 1fr;
   gap: clamp(24px, 4vw, 64px);
   max-width: 1280px;
   margin: 0 auto;
@@ -145,11 +145,11 @@ h1 {
 .variants button.active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
 
 .time {
-  font-family: var(--display); font-size: clamp(64px, 7vw, 96px); line-height: .9;
-  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  font-family: var(--display); font-size: clamp(80px, 10vw, 150px); line-height: .85;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .time .colon { color: var(--accent); margin: 0 .02em; }
-.time .secs { font-size: .36em; color: var(--muted); margin-left: .25em; vertical-align: .9em; letter-spacing: 0; }
+.time .secs { color: var(--muted); }
 
 .readout { margin-top: 22px; border-top: 1px solid var(--hair); }
 .readout > div {
@@ -183,6 +183,7 @@ footer span:first-child { font-family: var(--display); font-size: 16px; color: v
   .top { grid-template-columns: 1fr; gap: 6px; padding-top: 20px; padding-bottom: 18px; }
   .index { justify-content: flex-start; gap: 18px; margin-top: 10px; }
   .plate { grid-template-columns: 1fr; }
+  .time { font-size: 24vw; }
   #dial { max-height: none; }
   #dial .numeral { font-size: 56px; }
   #dial .axis-label, #dial .zero-label { display: none; }
@@ -216,12 +217,17 @@ footer .ss-link:hover { color: var(--accent); }
   100% { transform: translate(0.6%, -0.5%); }
 }
 .screensaver .ss-caption {
-  display: flex; gap: 14px; align-items: baseline;
-  position: fixed; left: max(20px, 3vmin); bottom: max(16px, 2.6vmin);
-  font: italic 400 clamp(15px, 1.6vmin, 20px) var(--display);
-  color: var(--muted); opacity: .7; margin: 0;
+  display: flex; flex-direction: column; gap: .35em;
+  position: fixed; left: max(20px, 4vmin); bottom: max(16px, 3.5vmin);
+  margin: 0; color: var(--muted);
 }
-.screensaver .ss-caption .ss-time { font-style: normal; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.screensaver .ss-caption > span:first-child {
+  font: 400 clamp(11px, 1.3vmin, 14px) var(--sans); letter-spacing: .18em; text-transform: uppercase; opacity: .8;
+}
+.screensaver .ss-caption .ss-time {
+  font: 400 clamp(40px, 7vmin, 88px) var(--display); line-height: .9; color: var(--ink); opacity: .85;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
 .screensaver .ss-hint {
   display: block;
   position: fixed; right: max(20px, 3vmin); top: max(16px, 2.6vmin);

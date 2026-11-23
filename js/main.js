@@ -64,13 +64,14 @@ function tick() {
   const now = new Date();
   const u = handFractions(now);
   const { hp, mp, sp } = dial.update(u.hour, u.minute, u.second);
+  const [hh, mm, ss] = [now.getHours(), now.getMinutes(), now.getSeconds()].map(pad);
 
   if (screensaver) {
-    $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${pad(now.getHours())}:${pad(now.getMinutes())}</span>`;
+    $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${hh}:${mm}:${ss}</span>`;
     raf = requestAnimationFrame(tick);
     return;
   }
-  $('#time').innerHTML = `${pad(now.getHours())}<span class="colon">:</span>${pad(now.getMinutes())}<span class="secs">${pad(now.getSeconds())}</span>`;
+  $('#time').innerHTML = `${hh}<span class="colon">:</span>${mm}<span class="colon">:</span><span class="secs">${ss}</span>`;
   const rows = [['hour', hp], ['minute', mp], ['second', sp]];
   for (const [k, p] of rows) {
     const r = clock.readout(p);
