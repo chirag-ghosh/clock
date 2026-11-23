@@ -1,0 +1,27 @@
+services:
+  clock:
+    build: .
+    image: curvature-clock
+    ports:
+      - "${CLOCK_PORT:-8080}:80"
+    restart: unless-stopped
+
+  # End-to-end tests against the running container:
+  #   docker compose --profile test run --rm e2e
+  e2e:
+    profiles: ["test"]
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    working_dir: /app
+    volumes:
+      - ./:/app:ro
+    environment:
+      BASE_URL: http://clock
+    command:
+      - sh
+      - -c
+      - >-
+        npm i --no-save --no-package-lock --prefix /tmp/pw playwright@1.63.0 >/dev/null &&
+        NODE_PATH=/tmp/pw/node_modules node --test 'tests/e2e/*.test.mjs'
+    depends_on:
+      clock:
+        condition: service_healthy

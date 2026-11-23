@@ -1,4 +1,6 @@
 // Generic dial: turns any closed sampled curve into a working clock face.
+import { withArcLength, centroid, pointAt } from './curve.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, parent) => {
   const n = document.createElementNS(NS, tag);
@@ -30,40 +32,15 @@ export class Dial {
     this.bounds = { minX, maxX, minY, maxY };
 
     const pts = raw.map((p) => ({ ...p, X: this.toX(p.x), Y: this.toY(p.y) }));
-    // cumulative arc length
-    let L = 0;
-    pts[0].s = 0;
-    for (let i = 1; i < pts.length; i++) {
-      L += Math.hypot(pts[i].X - pts[i - 1].X, pts[i].Y - pts[i - 1].Y);
-      pts[i].s = L;
-    }
     this.pts = pts;
-    this.length = L;
-
-    // pivot: arc-length weighted centroid
-    let cx = 0, cy = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const ds = pts[i].s - pts[i - 1].s;
-      cx += ((pts[i].X + pts[i - 1].X) / 2) * ds;
-      cy += ((pts[i].Y + pts[i - 1].Y) / 2) * ds;
-    }
-    this.pivot = { X: cx / L, Y: cy / L };
+    this.length = withArcLength(pts);
+    this.pivot = centroid(pts, this.length);
     this.render();
   }
 
   // point at fraction u ∈ [0,1) of the total arc length
   at(u) {
-    u = ((u % 1) + 1) % 1;
-    const target = u * this.length, P = this.pts;
-    let lo = 0, hi = P.length - 1;
-    while (hi - lo > 1) {
-      const mid = (lo + hi) >> 1;
-      if (P[mid].s < target) lo = mid; else hi = mid;
-    }
-    const a = P[lo], b = P[hi];
-    const k = b.s === a.s ? 0 : (target - a.s) / (b.s - a.s);
-    const lerp = (p, q) => p + (q - p) * k;
-    return { X: lerp(a.X, b.X), Y: lerp(a.Y, b.Y), x: lerp(a.x, b.x), y: lerp(a.y, b.y), t: lerp(a.t, b.t), tx: b.X - a.X, ty: b.Y - a.Y };
+    return pointAt(this.pts, this.length, u);
   }
 
   pathBetween(u0, u1, step = 0.002) {

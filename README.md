@@ -1,10 +1,35 @@
 # Curvature — clocks drawn on graphs
 
-Clocks whose dials are mathematical curves instead of circles. Static site, no build step:
+Clocks whose dials are mathematical curves instead of circles. Static site, no build step.
+
+## Run with Docker Compose
 
 ```sh
-python3 -m http.server   # then open http://localhost:8000
+docker compose up -d --build      # http://localhost:8080
+CLOCK_PORT=3000 docker compose up -d   # pick another port
+docker compose down
 ```
+
+The image is `nginx:alpine` serving the static files, with a `/healthz` health check.
+
+## Run locally
+
+```sh
+npm start        # http://localhost:8000 (zero-dependency Node server)
+```
+
+## Tests
+
+```sh
+npm test               # unit + end-to-end (needs Playwright + Chromium)
+npm run test:unit      # zeta accuracy, arc-length maths, clock contract — Node only
+npm run test:e2e       # real browser: dial renders, hands move, 12:00 sits on the zero, variants, mobile
+
+# end-to-end against the running container, entirely inside Docker:
+docker compose --profile test run --rm e2e
+```
+
+Set `BASE_URL` to point `npm run test:e2e` at any deployed copy.
 
 ## No. I — The Riemann Clock
 

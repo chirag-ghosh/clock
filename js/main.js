@@ -1,5 +1,6 @@
 import { clocks, forthcoming } from './clocks/index.js';
 import { Dial } from './dial.js';
+import { handFractions } from './curve.js';
 
 const $ = (s) => document.querySelector(s);
 const svg = $('#dial');
@@ -57,11 +58,8 @@ const pad = (n) => String(n).padStart(2, '0');
 
 function tick() {
   const now = new Date();
-  const ms = now.getMilliseconds();
-  const sec = now.getSeconds() + ms / 1000;
-  const min = now.getMinutes() + sec / 60;
-  const hr = (now.getHours() % 12) + min / 60;
-  const { hp, mp, sp } = dial.update(hr / 12, min / 60, sec / 60);
+  const u = handFractions(now);
+  const { hp, mp, sp } = dial.update(u.hour, u.minute, u.second);
 
   $('#time').innerHTML = `${pad(now.getHours())}<span class="colon">:</span>${pad(now.getMinutes())}<span class="secs">${pad(now.getSeconds())}</span>`;
   const rows = [['hour', hp], ['minute', mp], ['second', sp]];
