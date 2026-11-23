@@ -42,8 +42,8 @@ http://localhost:4321/?screensaver&variant=gerono#lemniscate # and a variant
 ```
 
 The cursor hides when idle, the dial drifts very slowly to spare the screen, **F** or a double-click toggles
-full screen and **Esc** returns to the full page. `?screensaver=0` turns it off. The footer links to the
-current clock in screensaver form.
+full screen and **Esc** returns to the full page. `?screensaver=0` turns it off. The **Screensaver** button
+under the dial opens the current clock in screensaver form.
 
 ### Cycling screensaver
 

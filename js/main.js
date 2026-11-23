@@ -8,7 +8,7 @@ const svg = root.querySelector('svg.dial-static');
 const params = new URLSearchParams(location.search);
 const screensaver = document.documentElement.classList.contains('screensaver');
 let dial, clock, variant, raf;
-let lastFrame = 0, lastSecond = -1, lastReadout = 0;
+let lastFrame = -Infinity, lastSecond = -1, lastReadout = 0; // -Infinity: never skip the first frame
 // 30 fps is plenty for hands moving a few pixels a second, and halves (or, on
 // 120 Hz displays, quarters) the drawing work compared with every animation frame.
 const FRAME_MS = 1000 / 30 - 2;
@@ -66,6 +66,16 @@ function select(c, v) {
 
 const dialOptions = (c, v) => ({ marker: c.marker?.(v), pivot: c.pivot, axes: c.axes });
 const pad = (n) => String(n).padStart(2, '0');
+// each digit in its own fixed-width slot (see .time .d in styles.css)
+const digits = (s) => [...s].map((c) => `<span class="d">${c}</span>`).join('');
+
+// Size the digit slot to the widest digit of the display face, once it has loaded.
+function measureDigits() {
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `100px ${getComputedStyle(document.body).getPropertyValue('--display')}`;
+  const widest = Math.max(...'0123456789'.split('').map((d) => ctx.measureText(d).width));
+  if (widest > 0) document.documentElement.style.setProperty('--digit-w', `${(widest / 100).toFixed(3)}em`);
+}
 
 // ——— cycle: ?cycle[=seconds] moves through every clock, morphing one dial into the next ———
 const cycleParam = params.get('cycle');
@@ -142,12 +152,12 @@ function tick(ts = performance.now()) {
     lastSecond = second;
     const [hh, mm, ss] = [now.getHours(), now.getMinutes(), second].map(pad);
     if (screensaver) {
-      $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${hh}:${mm}:${ss}</span>`;
+      $('#ss-caption').innerHTML = `<span>${clock.name}</span><span class="ss-time">${digits(hh)}:${digits(mm)}:${digits(ss)}</span>`;
     } else {
-      $('#time').innerHTML = `${hh}<span class="colon">:</span>${mm}<span class="colon">:</span><span class="secs">${ss}</span>`;
+      $('#time').innerHTML = `${digits(hh)}<span class="colon">:</span>${digits(mm)}<span class="colon">:</span><span class="secs">${digits(ss)}</span>`;
     }
   }
-  if (screensaver || ts - lastReadout < 250) return;
+  if (screensaver || !detailsOpen || ts - lastReadout < 250) return;
   lastReadout = ts;
   for (const [k, p] of [['hour', hp], ['minute', mp], ['second', sp]]) {
     const r = clock.readout(p);
@@ -155,6 +165,31 @@ function tick(ts = performance.now()) {
     $(`#ro-${k} .v`).textContent = r.value;
   }
 }
+
+// "Know more" folds the formula, variants, readouts and description in and out.
+let detailsOpen = false;
+function setDetails(open, scroll) {
+  detailsOpen = open;
+  $('#details').classList.toggle('open', open);
+  $('#more').setAttribute('aria-expanded', String(open));
+  $('#more .more-label').textContent = open ? 'Less' : 'Know more';
+  try { localStorage.setItem('details', open ? 'open' : 'closed'); } catch {}
+  lastReadout = 0;
+  if (open && scroll) {
+    // once it has finished unfolding, scroll so the panel is in view, keeping the bar above it visible
+    const details = $('#details');
+    const reveal = (e) => {
+      if (e && e.target !== details) return;
+      details.removeEventListener('transitionend', reveal);
+      const bar = $('.bar').getBoundingClientRect(), box = details.getBoundingClientRect();
+      const by = Math.min(bar.top - 16, box.bottom + 24 - innerHeight);
+      if (by > 0) scrollBy({ top: by, behavior: 'smooth' });
+    };
+    details.addEventListener('transitionend', reveal);
+  }
+}
+$('#more').addEventListener('click', () => setDetails(!detailsOpen, true));
+try { if (localStorage.getItem('details') === 'open') setDetails(true, false); } catch {}
 
 function route() {
   const id = location.hash.slice(1);
@@ -197,7 +232,7 @@ function setupScreensaver() {
 
 window.addEventListener('hashchange', route);
 if (screensaver) setupScreensaver();
-document.fonts.ready.then(() => document.body.classList.add('fonts'));
+document.fonts.ready.then(() => { document.body.classList.add('fonts'); measureDigits(); });
 route();
 tick();
 if (cycling) setTimeout(startTransition, CYCLE_MS);

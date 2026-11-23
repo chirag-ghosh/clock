@@ -17,6 +17,8 @@ after(async () => { await browser?.close(); server?.close(); });
 
 async function open(path, viewport = { width: 1440, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
+  // tests that click variant buttons on the normal page need "Know more" open
+  await ctx.addInitScript(() => { try { localStorage.setItem('details', 'open'); } catch {} });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(base + path);
@@ -29,7 +31,7 @@ const visible = (page, sel) => page.$eval(sel, (e) => getComputedStyle(e).displa
 test('?screensaver shows only the dial and a small caption, with no scrolling', async () => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     const page = await open('/?screensaver#lissajous', viewport);
-    for (const sel of ['header.top', '.plate', 'footer']) assert.equal(await visible(page, sel), false, sel);
+    for (const sel of ['header.top', '.plate']) assert.equal(await visible(page, sel), false, sel);
     assert.equal(await visible(page, '#ss-caption'), true);
     assert.match(await page.textContent('#ss-caption'), /^Lissajous\s*\d\d:\d\d:\d\d$/);
     const m = await page.evaluate(() => {
@@ -63,7 +65,7 @@ test('variant param picks the variant without overwriting the saved choice', asy
   await page.context().close();
 });
 
-test('footer link opens the current clock as a screensaver', async () => {
+test('the Screensaver button under the dial opens the current clock as a screensaver', async () => {
   const page = await open('/#cardioid');
   await page.click('#variants button:nth-child(2)');
   assert.equal(await page.getAttribute('#ss-link', 'href'), '?screensaver&variant=inner#cardioid');
@@ -132,6 +134,17 @@ test('?cycle morphs to the next playlist entry and redraws its numerals', async 
   const s = await state(page);
   assert.match(s.domain, /14\.1347/);
   assert.equal(s.numerals, 12);
+  await page.context().close();
+});
+
+test('the Screensaver button sits beside "Know more" on the first screen, and there is no footer', async () => {
+  const page = await open('/');
+  assert.equal(await page.locator('footer').count(), 0);
+  const r = await page.evaluate(() => {
+    const a = document.querySelector('#ss-link').getBoundingClientRect(), m = document.querySelector('#more').getBoundingClientRect();
+    return { sameRow: Math.abs(a.top - m.top) < 2, onScreen: a.bottom <= innerHeight };
+  });
+  assert.deepEqual(r, { sameRow: true, onScreen: true });
   await page.context().close();
 });
 

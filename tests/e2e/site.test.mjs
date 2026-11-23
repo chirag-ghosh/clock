@@ -17,8 +17,11 @@ before(async () => {
 });
 after(async () => { await browser?.close(); server?.close(); });
 
-async function open(path = '/', opts = {}) {
+// Most tests use the formula, variants and readouts, so they start with "Know more"
+// already open; pass { collapsed: true } to see the page as a first-time visitor does.
+async function open(path = '/', { collapsed = false, ...opts } = {}) {
   const ctx = await browser.newContext(opts);
+  if (!collapsed) await ctx.addInitScript(() => { try { localStorage.setItem('details', 'open'); } catch {} });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   // Third-party resources (web fonts) may be unreachable offline; only our own errors count.
@@ -111,6 +114,7 @@ test('hands are positioned and the second marker moves', async () => {
 
 test('12:00 puts every hand on the zero at the origin', async () => {
   const ctx = await browser.newContext();
+  await ctx.addInitScript(() => { try { localStorage.setItem('details', 'open'); } catch {} }); // readouts live in "Know more"
   await ctx.addInitScript(() => {
     const fixed = new Date(2026, 0, 1, 12, 0, 0, 0).getTime();
     const RealDate = Date;
@@ -206,6 +210,112 @@ test('performance: static artwork and animated hands live in separate layers, no
     sameViewBox: document.querySelector('.dial-static').getAttribute('viewBox') === document.querySelector('.dial-live').getAttribute('viewBox'),
   }));
   assert.deepEqual(r, { staticHands: 0, staticCurve: 1, liveHands: 3, liveText: 0, filters: 0, willChange: 'transform', sameViewBox: true });
+  await page.context().close();
+});
+
+test('under the dial: name on the left, time on the right, the buttons between, no overlap', async () => {
+  for (const width of [1674, 1440, 1024, 700]) {
+    const page = await open('/#lemniscate', { collapsed: true, viewport: { width, height: 1000 } });
+    const r = await page.evaluate(() => {
+      const text = (s) => { const g = document.createRange(); g.selectNodeContents(document.querySelector(s)); return g.getBoundingClientRect(); };
+      const n = text('#title'), t = text('#time'), m = document.querySelector('.bar-actions').getBoundingClientRect();
+      return { n: [n.left, n.right, n.bottom], m: [m.left, m.right, m.bottom], t: [t.left, t.right, t.bottom], vw: innerWidth, vh: innerHeight };
+    });
+    if (width > 960) {
+      assert.ok(r.n[1] < r.m[0] && r.m[1] < r.t[0] && r.t[1] <= r.vw, `${width}px: ${JSON.stringify(r)}`);
+    } else {
+      // narrower: name and time share a line, the buttons sit on the line below
+      assert.ok(r.n[1] < r.t[0] && r.t[1] <= r.vw && r.m[2] > Math.max(r.n[2], r.t[2]), `${width}px: ${JSON.stringify(r)}`);
+    }
+    // the whole bar is on the first screen, below the dial
+    assert.ok(Math.max(r.n[2], r.m[2], r.t[2]) <= r.vh, `${width}px: bar below the fold ${JSON.stringify(r)}`);
+    await page.context().close();
+  }
+});
+
+test('details are folded away until "Know more" is clicked, and the choice is remembered', async () => {
+  const page = await open('/', { collapsed: true });
+  const shown = () => page.$eval('.details-inner', (e) => getComputedStyle(e).visibility === 'visible' && e.getBoundingClientRect().height > 50);
+  assert.equal(await page.getAttribute('#more', 'aria-expanded'), 'false');
+  assert.equal(await shown(), false);
+  assert.equal(await page.isVisible('#variants button'), false);
+
+  await page.click('#more');
+  await page.waitForFunction(() => document.querySelector('.details-inner').getBoundingClientRect().height > 50);
+  assert.equal(await page.getAttribute('#more', 'aria-expanded'), 'true');
+  assert.match(await page.textContent('#more'), /Less/);
+  await page.waitForTimeout(700);
+  assert.equal(await shown(), true);
+  assert.match(await page.textContent('#ro-second .v'), /i$/); // live readouts fill in once open
+
+  await page.reload();
+  await page.waitForSelector('#dial.ready');
+  assert.equal(await page.getAttribute('#more', 'aria-expanded'), 'true');
+  await page.click('#more');
+  await page.waitForTimeout(700);
+  assert.equal(await shown(), false);
+  await page.context().close();
+});
+
+test('on a phone the name, time and button stack without sideways scrolling', async () => {
+  const page = await open('/#lemniscate', { collapsed: true, viewport: { width: 375, height: 812 } });
+  const r = await page.evaluate(() => {
+    const y = (s) => document.querySelector(s).getBoundingClientRect().top;
+    return { title: y('#title'), time: y('#time'), more: y('#more'), sw: document.documentElement.scrollWidth, vw: innerWidth };
+  });
+  assert.ok(r.title < r.time && r.time < r.more, JSON.stringify(r));
+  assert.ok(r.sw <= r.vw, JSON.stringify(r));
+  await page.context().close();
+});
+
+test('the digital time keeps the same width whatever the digits (no jitter)', async () => {
+  const page = await open('/');
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--digit-w') !== '');
+  const widths = await page.evaluate(() => {
+    const t = document.querySelector('#time');
+    const cell = (s) => [...s].map((c) => `<span class="d">${c}</span>`).join('');
+    return ['11:11:11', '08:48:08', '20:37:59', '00:00:00'].map((v) => {
+      t.innerHTML = v.split(':').map(cell).join('<span class="colon">:</span>');
+      const r = document.createRange(); r.selectNodeContents(t);
+      return r.getBoundingClientRect().width.toFixed(2);
+    });
+  });
+  assert.equal(new Set(widths).size, 1, `widths differ: ${widths}`);
+  // and the live clock renders its digits in those slots
+  await page.waitForTimeout(1100);
+  assert.equal(await page.locator('#time .d').count(), 6);
+  await page.context().close();
+});
+
+test('desktop: everything fits one window until "Know more" is opened, then the page scrolls', async () => {
+  for (const [width, height] of [[1920, 1080], [1674, 1000], [1440, 900], [1280, 720], [1024, 768], [768, 1024]]) {
+    const page = await open('/#lemniscate', { collapsed: true, viewport: { width, height } });
+    const m = () => page.evaluate(() => {
+      const b = document.querySelector('.bar').getBoundingClientRect();
+      return { sh: document.documentElement.scrollHeight, vh: innerHeight, barLeft: b.left, barBottom: b.bottom };
+    });
+    const closed = await m();
+    assert.ok(closed.sh <= closed.vh, `${width}x${height} scrolls while collapsed: ${JSON.stringify(closed)}`);
+    assert.ok(closed.barBottom <= closed.vh, `${width}x${height}: bar off screen`);
+
+    await page.click('#more');
+    await page.waitForFunction(() => document.querySelector('.details-inner').getBoundingClientRect().height > 50);
+    await page.waitForTimeout(700);
+    const open_ = await m();
+    assert.ok(open_.sh > open_.vh, `${width}x${height} should scroll once open`);
+    // opening must not shift anything sideways (e.g. a scrollbar taking width)
+    assert.equal(open_.barLeft, closed.barLeft, `${width}x${height}: layout moved sideways`);
+    await page.context().close();
+  }
+});
+
+test('the page always reserves room for a scrollbar (none in the screensaver)', async () => {
+  const page = await open('/', { collapsed: true });
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarGutter), 'stable both-edges');
+  await page.goto(base + '/?screensaver');
+  await page.waitForSelector('#dial.ready');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarGutter), 'auto');
   await page.context().close();
 });
 
